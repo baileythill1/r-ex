@@ -1,0 +1,94 @@
+---
+title: "Introduction Simulation Study Problems"
+author: "Hill"
+date: "2/6/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#collect all four
+#1a
+toyz <-function(n, probs){
+  count <- c()
+  while(length(unique(count)) != n) {
+    toy <- sample(c(1:n), 1, prob = probs, replace = TRUE)
+    count <- c(count, toy)
+  }
+  return(length(count))
+}
+toyz(4, c(rep(0.25,4)))
+
+all_four<- function(n, n_reps=1000){
+  replicate(n_reps, toyz(4, c(rep(0.25,4))))
+}
+
+
+
+mean(all_four())
+
+t.test(all_four())
+
+sum(all_four()>14)/1000
+#1b different probabilities
+toyz(4, c(.1, .25, .25, .4))
+
+all_four_2<- function(n, n_reps=1000){
+  replicate(n_reps, toyz(4, c(.1, .25, .25, .4)))
+}
+
+mean(all_four_2())
+
+t.test(all_four_2())
+
+sum(all_four_2()>14)/1000
+```
+
+```{r}
+#Birthday Problem
+one_group <- function(n){
+  x <- sample(1:365, n, replace = TRUE)
+  same<- any(duplicated(x))
+  return(same)
+}
+
+sim_group<- function(n, n_reps=1000){
+  x<-replicate(n_reps, one_group(n))
+  p_hat<- mean(x)
+  ci <- qnorm(0.975) * sqrt(p_hat * (1 - p_hat) / n_reps)
+  upper_int<-p_hat+ci
+  lower_int<- p_hat-ci
+  output<- c(lower_int, p_hat, upper_int)
+  output
+}
+
+sim_group(20)
+
+bday<- 1:75
+plot_base<-sapply(bday, sim_group)
+
+plot_base<-t(plot_base)
+plot_base<-as.data.frame(plot_base)
+
+colnames(plot_base)<- c("Lower Interval", "Mean", "Upper Interval")
+
+n<- 75
+bday_problem <- numeric(n)  # create numeric vector to store probabilities
+for (i in 1:n)      {
+  b <- 1 - (0:(i - 1))/365  
+  bday_problem[i] <- 1 - prod(b)  }
+
+plot(bday_problem, xlab = "Probability of Sharing Birthday", ylab = "Number of people in the room", type = "l", col = "red")
+lines(bday, plot_base$Mean, type = "l")
+lines(bday, plot_base$`Lower Interval`,
+      type = "l", lty = 2)
+lines(bday, plot_base$`Upper Interval`,
+      type = "l", lty = 2)
+
+
+
+```
+
