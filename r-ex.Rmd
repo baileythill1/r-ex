@@ -1,0 +1,216 @@
+---
+title: "R-ex"
+author: "Hill"
+date: "2/6/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Wildfire (60 points)
+Australia is currently in the midst of the [worst wildfire season in recent
+memory](https://www.cnn.com/2020/01/01/australia/australia-fires-explainer-intl-hnk-scli/index.html).
+At least two dozen people have been killed. Over 12 million acres of land have
+been burned and an estimated 480 million animals have died^[[Using US map to
+examine scale of massive Australia
+wildfires](https://abcnews.go.com/International/us-map-examine-scale-massive-australia-wildfires/story?id=68102703)].
+The impact has been catastrophic.
+
+Fires are exceptionally difficult to predict. [Wildfire
+modeling](https://en.wikipedia.org/wiki/Wildfire_modeling) is typically based on
+simulation and is often complex and difficult. However, we can create a
+simplified wildfire simulation with the following guidelines:
+
+* Start with a known number of trees burning
+* For each burning tree, there are a random number of trees (defined by a
+geometric distribution with `prob = 0.5`) within the "danger zone"
+* Each tree within the "danger zone" has a fixed probability of catching on fire
+* As each new tree catches fire, the cycle repeats
+
+This process can be conceptually represented as a two step cycle:
+1. How many trees are currently in the "danger zone"
+2. How many of the trees in the "danger zone" actually catch fire. This number
+becomes the next input for determining step 1.
+
+Given this simplified approach, there are two possible simulation outcomes:
+Either the fire dies out or it consumes the entire forest.
+
+Helpful hints:
+* You can draw random values from the geometric distribution with the `rgeom()`
+function
+
+1. (35 points) Define a function called `wildfire` that simulates a single
+scenario. This function should take 3 arguments:
+  * `p`: the likelihood that a tree in the "danger zone" catches fire
+  * `burning`: the number of trees initially burning
+  * `total_trees`: the total number of trees in the forest  
+This function should return the total number of trees burned.
+
+```{r}
+
+wildfire <- function(p, burning, total_trees) {
+  #we will have to use the remaining tree count to find the total
+  remain_tree <- total_trees - burning
+  #initial burning tree is the initial count of burnt trees
+  burnt_trees <- burning
+  
+  for (i in 1:length(burning)) {
+    burning <- burning[i]
+    danger_zone <-  sum(rgeom(burning, prob = 0.5))
+    while (remain_tree > 0) {
+      if (danger_zone == 0) {
+        break
+      }
+      if (remain_tree < danger_zone) {
+        remain_tree = danger_zone
+      }
+      else if (danger_zone > 0) {
+        burning <-
+          sum(replicate(danger_zone, sample(c(0, 1), 1, prob = c(1 - p, p))))
+        burnt_trees <- burnt_trees + burning
+        remain_tree <- remain_tree - danger_zone
+      }
+    }
+  }
+  return(burnt_trees)
+}
+
+```
+
+
+2. (10 points) Using the function defined in step 1, run this simulation 10,000
+times each for the following two scenarios:
+  * Fire starts with 1 burning tree, `p = 0.9`, with 1,000 trees in the forest
+  * Fire starts with 6 burning trees, `p = 0.4`, with 1,000 trees in the forest
+
+```{r}
+#the for loop I used makes this run pretty slow...
+
+n_sims <- 10000
+
+one_tree <-
+  replicate(n_sims, wildfire(
+    p = 0.9,
+    burning = 1,
+    total_trees = 1000
+  ))
+six_tree <-
+  replicate(n_sims, wildfire(
+    p = 0.4,
+    burning = 6,
+    total_trees =  1000
+  ))
+
+```
+
+3. (10 points) Using the results from step 2, estimate the average number of
+trees burned in each scenario.
+```{r}
+mean(one_tree)
+mean(six_tree)
+```
+
+4. (5 points) Calculate a 95% confidence interval for the two estimates
+calculated in step 3.
+```{r}
+CInt <- function(x, alpha = 0.05) {
+  n <- length(x)
+  est <- mean(x)
+  sd <- sd(x)
+  CInt <- est + c(-1, 1) * qnorm(1 - (alpha / 2)) * sd / sqrt(n)
+  c(lower = CInt[1],
+    est = est,
+    upper = CInt[2])
+}
+CInt(one_tree)
+CInt(six_tree)
+```
+
+## Utah Jazz (45 points)
+The Utah Jazz are in the midst of an impressive season. At the time of writing
+this question (2020-01-18) the Jazz have a 29-13 record (29 wins, 13 losses).
+This translates to a win percentage of .690 (29 / (29 + 13)) The file
+`opponents.csv` contains Jazz opponents for the remainder of the season and
+their current win-loss record. Please note the in the course of a season, the
+Jazz play teams multiple times, so it is expected to see teams repeated on the
+schedule.
+
+Given a game between two opponents (referred to as A and B), the likelihood that
+team A wins is defined as^[[Probabilities of Victory in Head-to-Head Team
+Matchups](https://sabr.org/research/probabilities-victory-head-head-team-matchups)]:
+
+$$
+P_A = \frac{WP_A(1 - WP_B)}{WP_A(1 - WP_B) + WP_B(1 - WP_A)}
+$$
+
+Where $P_A$ is the probability that team A wins, $WP_A$ is the winning
+percentage of team A, and $WP_B$ is the winning percentage of team B.
+
+Using this equation, create a function that simulates the remainder of the Jazz
+season by estimating the outcome of each remaining game. This simulation should
+use the Jazz's current win percentage as the Jazz's win percentage for every
+game (in other words, you don't need to use the previously simulated game to
+adjust the Jazz's win percentage).
+
+1. (30 points) Define a function called `jazz`  that simulates the remainder of
+the Jazz's season. This function should return the total number of wins the Jazz
+have at the end of the season.
+
+```{r}
+Jazz <- function() {
+  Win <- 29
+  jazz_sched <-
+    read.csv("jazz-schedule.csv", header = TRUE, sep = ",")
+  WP_A <- .69
+  jazz_sched$percentages <-
+    jazz_sched$wins / (jazz_sched$wins + jazz_sched$losses)
+  for (i in 1:length(jazz_sched$percentages)) {
+    WP_B <- jazz_sched$percentages[i]
+    win_prob <-
+      {
+        WP_A * (1 - WP_B)
+      } / {
+        (WP_A * (1 - WP_B) + WP_B * (1 - WP_A))
+      }
+    result <- sample(c(0, 1), 1, prob = c((1 - win_prob), win_prob))
+    if (result == 1) {
+      Win <- Win + 1
+    }
+  }
+  return(Win)
+}
+
+```
+
+
+2. (5 points) Using the function defined in 1, run this simulation 10,000 times and store the results.
+```{r}
+n_reps <- 10000
+
+super_jazz <- replicate(n_reps, Jazz())
+```
+
+3. (5 points) Using the results from step 2, estimate the likelihood that the
+Jazz win at least 60 games this season.
+
+```{r}
+sixty_prob <- mean(super_jazz >= 60)
+
+```
+
+4. (5 points) Calculate a 95% confidence interval on the estimate from the
+previous step.
+
+```{r}
+ci <-
+  sixty_prob + c(-1, 1) * qnorm(0.975) * sqrt(sixty_prob * (1 - sixty_prob) / length(super_jazz))
+c(lower = ci[1],
+  sixty_prob = sixty_prob,
+  upper = ci[2])
+
+
+```
+
