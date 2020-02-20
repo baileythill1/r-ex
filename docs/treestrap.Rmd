@@ -1,0 +1,56 @@
+---
+title: "Trees bootstrapping"
+author: "Hill"
+date: "2/20/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Trees
+ 
+In the trees dataset found in R, there are three variables "Girth" "Height"
+and "Volume". There is interest in using "Girth" and "Height"(two noninvasive
+measures) to predict "Volume". Carrying out this prediction can be done using a
+regression model with two explanatory variables ("Height" and "Girth"). This
+model can very easily be fit in R using the following two lines of code.
+```{r}
+
+data(trees)
+  
+lm(Volume ~ Height + Girth, data=trees)
+
+
+```
+
+
+```{r}
+treefun<-function(){
+samp_tree <- sample(1:nrow(trees), nrow(trees), replace = TRUE)
+xtree <- trees[samp_tree,]
+
+modelthing<-lm(Volume ~ Height + Girth, data=xtree)
+coef(modelthing)[2]/coef(modelthing)[3]
+}
+```
+
+Principal interest lies in estimating the regression coefficient of "Height"
+divided by the regression coefficient for "Girth". Obtaining a estimate of
+the ratio is easy --- just compute the ratio of the two slope estimates ---
+but assessing uncertainty associated with the point estimate can be
+difficult theoretically (although methods do exist). 
+
++ For this problem construct an 95% confidence interval using the bootstrap 
+procedure. Use 5,000 bootstrap samples.
+```{r}
+n_samples<- 5000
+
+tree_strap<-replicate(n_samples, mean(treefun()))
+mean(tree_strap)
+
+ci <- quantile(tree_strap, probs = c(0.025, 0.975))
+
+```
