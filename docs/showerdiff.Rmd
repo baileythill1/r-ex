@@ -1,0 +1,64 @@
+---
+title: "showers"
+author: "Hill"
+date: "2/20/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Showers
+
+You think that your roommate takes showers whose duration is different from
+yours. Your roommate disagrees but, instead of arguing, you both decide to keep
+track of the time it takes both of you to shower for fourteen days and then to
+employ skills from an introductory statistics class (e.g., STAT 121) to create a
+confidence interval on the population mean showering time of your roommate minus
+the population mean showering time of you. The data and code to compute a 90%
+confidence interval are below.
+
+```{r}
+roommate <- c(6,6.25,5.75,6.5,6,15,35,20,4,5.25,5.75)
+
+you <- c(3.5,5.5,4,4,4,6,11,12,3,4,4.25,7,3.25)
+
+t.test(roommate, you, conf.level = 0.9)
+```
+
+
+Notice that the confidence interval contains 0 and, therefore, your roommate
+concludes that there is no significant difference in the time it takes you
+both to take a shower. But it might be inappropriate to use this confidence
+interval on the difference in means because the data are not normally
+distributed and the sample sizes are small. 
+
++ Use the bootstrap procedure to compute a 90% confidence interval on the
+difference in these means. 
+
+Based on this bootstrap confidence interval, what
+conclusion do you make at the 0.10 level of significance?
+#I would conclude that we are able to reject the null hypothesis as our interval does not include zero 
+
+
+```{r}
+n_samples <- 10000
+shower_differences <- replicate(n_samples, mean(sample(roommate, replace = TRUE)) - mean(sample(you, replace = TRUE)))
+
+ci <- quantile(shower_differences, probs = c(0.025, 0.975), CI.level = .90)
+ci
+
+```
+
+Based on this bootstrap confidence interval, what
+conclusion do you make at the 0.10 level of significance?
+#I would conclude that we are able to reject the null hypothesis as our interval does not include zero as such the mean difference is not equal to zero. 
+
+
+```{r}
+#JUSTFORFUN(and practice)
+plot(density(shower_differences))
+abline(v = ci, col = "blue")
+```
+
+
