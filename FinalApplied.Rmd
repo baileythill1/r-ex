@@ -1,0 +1,236 @@
+---
+title: "Final Project"
+author: "Hill"
+date: "4/21/2020"
+output: html_document
+---
+
+---
+title: "Final Exam"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidytext)
+library(schrute)
+library(syuzhet)
+library(tidyr)
+```
+
+## The Office (75 points)
+The schrute R package contains the script from every episode of the popular television series “The Office”. The raw data (stored in a data frame called theoffice) contains the following columns:
+
+index: Row indicator (values from 1 to number of rows)
+season: Season of The Office
+episode: Episode number for the given season
+episode_name: Name of the episode
+director: Episode director
+writer: Episode writer (sometimes delimited by ;)
+character: Name of the character from the show
+text: The line that was spoken
+text_w_direction: Same as text, but includes directions (ie [On the phone])
+Given this data, it’s possible to formulate and test various hypotheses. For example, you could hypothesize that male characters have more lines than female characters. Or you could hypothesize that episodes written by B.J. Novak contain more lines than episodes written by Mindy Kaling. Or you could hypothesize that the number of lines spoken by Dwight and Jim are correlated. Since each “line” of the show is an observation, it’s possible to expand the data so that each word of the show is an observation:
+
+```{r}
+data("theoffice")
+
+theoffice
+office_tokens <- theoffice %>%
+  unnest_tokens(output = word, input = text)
+```
+
+In this case, office_tokens is a data frame of 570566 observations where each observation represents a single word spoken by a character in the show. With this alternative format, you can investigate questions like who has the most words or which words are most common across seasons and episodes.
+
+Regardless of how you choose to represent the data, you must come up with your own null and alternative hypotheses (you can use the examples provided for inspiration). Once you have decided on your hypotheses, you will conduct both a bootstrap procedure and a permutation test to test your hypotheses.
+
+1. Clearly state your null and alternative hypothesis (in comments if using an R Script, or in plain text if using RMarkdown) (10 points)
+
+***I want to look at the positive and negative sentiment of the words of the lines from the office. To do this I will use the syuzhet package and the Bing Liu Sentiment lexicon and will look at the mean amount of positive-sentiment words used in each episode of a season vs the mean amount of negative words used***
+
+Null Hypothesis: Mean amount of words in each episode of season 6 of the office with positive sentiment =(is equal to) Mean amount of words with negative sentiment  
+
+Alternative Hypothesis: Mean amount of words in each episode of season 6 of the office with positive sentiment  > (is greater than) Mean amount of words with negative sentiment 
+
+
+2. Calculate the observed test statistic upon which your hypothesis is based. This might be a difference in means or a correlation or any other summary statistic. It should be a single value (10 points)
+
+```{r}
+#remove stopwords from the text
+
+
+clean_script <- office_tokens %>%
+  anti_join(get_stopwords())
+```
+
+```{r}
+positive_words <- get_sentiments("bing") %>%
+  filter(sentiment == "positive")
+
+positive_sentiment <- clean_script %>%
+  group_by(episode) %>% 
+  semi_join(positive_words) %>%
+  count(word, sort = TRUE)
+
+neg_words <- get_sentiments("bing") %>%
+  filter(sentiment == "negative")
+
+negative_sentiment <- clean_script %>%
+  group_by(episode) %>% 
+  semi_join(neg_words) %>%
+  count(word, sort = TRUE)
+```
+```{r}
+positive_sentiments<-aggregate(n~episode, positive_sentiment, sum) 
+
+negative_sentiments <- aggregate(n~episode, negative_sentiment, sum)
+```
+
+
+
+```{r}
+(obs_diff <- mean(positive_sentiments$n) - mean(negative_sentiments$n))
+```
+
+3. Conduct a bootstrap procedure to test your hypothesis (20 points):
+Calculate 5,000 bootstrapped test statistics (10 points)
+Based on your results from the above 5,000 samples, calculate a 95% confidence interval on your observed test statistic (10 points)
+
+```{r}
+n_samples <- 5000
+bs_sentiment <-
+  replicate(n_samples, mean(sample(positive_sentiments$n, replace = TRUE)) - mean(sample(negative_sentiments$n, replace = TRUE)))
+```
+
+```{r}
+ci <- quantile(bs_sentiment, probs = c(0.025, 0.975))
+ci
+mean(bs_sentiment)
+```
+
+4. Conduct a permutation test to test your hypothesis (20 points):
+Perform a permutation test with 5,000 samples (10 points)
+Calculate the p value for your original test statistic along with its 95% confidence interval (10 points)
+
+```{r}
+n_perm <- 5000
+perm_sentiment <-
+  replicate(n_perm, {
+    pos_neg <- c(positive_sentiments$n, negative_sentiments$n)
+    pos_negp <- sample(pos_neg, 48, replace = FALSE)
+    new_pos <- pos_negp[1:24]
+    new_neg <- pos_negp[25:48]
+    obs_stat <- mean(new_pos) - mean(new_neg)
+  })
+
+```
+
+```{r}
+(p <- mean(abs(perm_sentiment >= obs_diff)))
+```
+
+```{r}
+ci <- p + c(-1, 1) * qnorm(.975) * sqrt(p * (1 - p) / n_perm)
+c(lower = ci[1],
+  p_value = p,
+  upper = ci[2])
+```
+
+5. Interpret your conclusions from both procedures (5 points)
+
+With my bootstrapping procedure I found that since zero falls outside of the confidence interval, I reject the null hypothesis and can conclude that there is a significant difference beween the mean amount of words with positive sentiment and words with negative sentiment in each episode of season 6 of the office
+
+Based on the results of permutation testing (p-value of zero) I found sufficient evidence to reject the null hypothesis and conclude that mean amount of words with positive sentiment is greater than the mean amount of words with negative sentiment in each episode of season 6 of the office
+
+(I already knew season 6 of the office could improve my mood but now I have science to back me up)
+
+6. Plot the resulting distribution from both procedures in the same plot along with a vertical line indicating the observed test statistic. (10 points)
+
+```{r}
+#I added a fill to the density plot and the CI vertical line. 
+
+x <- tibble(bootstrap = bs_sentiment,
+            permutation = perm_sentiment) %>%
+  pivot_longer(cols = everything(),
+               names_to = "method",
+               values_to = "difference") %>%
+  ggplot(aes(x = difference, col = method, fill = method)) +
+  geom_density() +
+  geom_vline(xintercept = obs_diff) +
+  geom_vline(xintercept = ci, col = "red")
+
+
+(x <- x + theme_bw())
+```
+
+
+
+
+
+##  Cars (45 points)
+The built in `cars` dataset in R contains 2 columns:
+
+- speed: The speed of the car
+- dist: The stopping distance of the car
+
+Given this data, we have the following hypotheses:
+
+**Null:** There is no correlation between `speed` and `dist`  
+**Alternative:** The correlation between `speed` and `dist` is greater than zero
+
+1. Calculate the correlation between `speed` and `dist` (10 points)
+
+```{r}
+datasets::cars
+
+obs_speed_cor <- cor(cars$speed, cars$dist)
+
+plot(cars)
+```
+
+2. Perform a permutation test with 10,000 samples and store the results (10
+points)
+
+```{r}
+n_permu <- 10000
+results <- replicate(n_permu, {
+  new_speed <-
+    data.frame(speed = (cars$speed), dist = sample(cars$dist))
+  cor(new_speed$speed, new_speed$dist)
+})
+
+```
+
+3. Plot the density of the results from step 3 along with a vertical red line
+for the observed correlation calculated in step 2 (10 points)
+```{r}
+plot(density(results), xlim = c(min(results), obs_speed_cor))
+abline(v = obs_speed_cor, col = "red")
+```
+
+4. Using the results from 2 and 3, calculate an estimated P value for the
+observed correlation (5 points) 
+
+```{r}
+
+(p_value <- mean(abs(results) >= abs(obs_speed_cor)))
+```
+
+5. Calculate a 95% confidence interval on the P value you estimated in step 5
+(5 points)
+```{r}
+ci <-
+  p_value + c(-1, 1) * qnorm(.975) * sqrt(p_value * (1 - p_value) / n_permu)
+c(lower = ci[1],
+  p_value = p_value,
+  upper = ci[2])
+```
+
+6. Interpret your results (5 points)
+
+Based on the p-value for the observed correlation we find that we have significant evidence to reject the null hypothesis and conclude that the correlation between speed and dist is greater than zero. 
+
+
+
+
+
+
